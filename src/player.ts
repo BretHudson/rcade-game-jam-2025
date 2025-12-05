@@ -1,11 +1,15 @@
 import {
 	BoxCollider,
+	Camera,
+	clamp,
 	Entity,
-	Input,
 	Keys,
+	lerp,
+	Random,
 	Sprite,
 	Vec2,
 	type CSSColor,
+	type Ctx,
 } from 'canvas-lord';
 import {
 	assetManager,
@@ -36,11 +40,15 @@ export class Octopus extends Entity<GameScene> {
 	oldPos = new Vec2();
 	newPos = new Vec2();
 
+	sin = 0;
+
 	constructor(x: number, y: number, tag: string, color: CSSColor) {
 		const image = assetManager.sprites.get(IMAGES.SNAKETOPUS);
 		if (!image) throw new Error('oh no');
 		const sprite = new Sprite(image);
 		super(x, y, sprite);
+
+		this.sin = Random.float(Math.PI * 2);
 
 		this.oldPos.setXY(x, y);
 		this.newPos.setXY(x, y);
@@ -51,7 +59,7 @@ export class Octopus extends Entity<GameScene> {
 		const collider = new BoxCollider(CELL_W, CELL_H, tag);
 		collider.color = color;
 		this.addCollider(collider);
-		this.colliderVisible = true;
+		// this.colliderVisible = true;
 	}
 
 	preUpdate() {
@@ -62,6 +70,44 @@ export class Octopus extends Entity<GameScene> {
 			this.graphic.y += CELL_H / 2;
 			this.scaled = true;
 		}
+	}
+
+	postUpdate() {
+		let xDist = this.x - this.newPos.x;
+		let yDist = this.y - this.newPos.y;
+
+		if (Math.abs(xDist) > BOARD_W / 2) {
+			xDist = -Math.sign(xDist) * CELL_W;
+			this.newPos.x = this.x - xDist;
+		}
+		if (Math.abs(yDist) > BOARD_H / 2) {
+			yDist = -Math.sign(yDist) * CELL_H;
+			this.newPos.y = this.y - yDist;
+		}
+
+		this.x =
+			Math.abs(xDist) > 0.1 ? lerp(this.x, this.newPos.x, 0.17) : this.newPos.x;
+		this.y =
+			Math.abs(yDist) > 0.1 ? lerp(this.y, this.newPos.y, 0.17) : this.newPos.y;
+
+		if (this.x === this.newPos.x) {
+			if (this.newPos.x < 0) this.newPos.x += BOARD_W;
+			if (this.newPos.x >= BOARD_W) this.newPos.x -= BOARD_W;
+			this.x = this.newPos.x;
+		}
+
+		if (this.y === this.newPos.y) {
+			if (this.newPos.y < 0) this.newPos.y += BOARD_H;
+			if (this.newPos.y >= BOARD_H) this.newPos.y -= BOARD_H;
+			this.y = this.newPos.y;
+		}
+
+		this.graphic.visible = false;
+
+		this.sin += 0.1;
+		this.graphic.centerOO();
+		this.graphic.y = CELL_H / 2 - Math.abs(Math.sin(this.sin));
+		this.graphic.angle = clamp(Math.sin(this.sin * 0.5) * 30, -10, 10);
 	}
 
 	addFollower() {
@@ -75,16 +121,44 @@ export class Octopus extends Entity<GameScene> {
 		this.scene.addEntities(baby);
 	}
 
-	move() {
+	followParent() {
 		if (!this.following) return;
 
 		this.oldPos.x = this.x;
 		this.oldPos.y = this.y;
 
-		this.x = this.following.oldPos.x;
-		this.y = this.following.oldPos.y;
+		this.newPos.x = this.following.oldPos.x;
+		this.newPos.y = this.following.oldPos.y;
 
-		this.followedBy?.move();
+		this.followedBy?.followParent();
+	}
+
+	render(ctx: Ctx, camera: Camera): void {
+		this.graphic.visible = true;
+
+		ctx.save();
+
+		ctx.beginPath();
+		ctx.rect(-camera.x, -camera.y, BOARD_W, BOARD_H);
+		ctx.clip();
+
+		[
+			[0, 0],
+			[-BOARD_W, 0],
+			[-BOARD_W, -BOARD_H],
+			[-BOARD_W, BOARD_H],
+			[BOARD_W, 0],
+			[BOARD_W, -BOARD_H],
+			[BOARD_W, BOARD_H],
+			[0, -BOARD_H],
+			[0, BOARD_H],
+		].forEach(([x, y]) => {
+			const newCam = new Camera();
+			newCam.set(camera);
+			newCam.setXY(newCam.x + x, newCam.y + y);
+			this.graphic.render(ctx, newCam);
+		});
+		ctx.restore();
 	}
 
 	scaled = false;
@@ -98,6 +172,12 @@ export class Baby extends Octopus {
 	}
 }
 
+export type InputDir =
+	| typeof Keys.ArrowLeft
+	| typeof Keys.ArrowRight
+	| typeof Keys.ArrowUp
+	| typeof Keys.ArrowDown;
+
 export class Player extends Octopus {
 	babies: Baby[] = [];
 
@@ -105,32 +185,36 @@ export class Player extends Octopus {
 		super(x, y, COLLISION_TAG.PLAYER, 'yellow');
 	}
 
-	update(input: Input) {
-		const xDir =
-			+input.keyPressed(Keys.ArrowRight) - +input.keyPressed(Keys.ArrowLeft);
-		const yDir =
-			+input.keyPressed(Keys.ArrowDown) - +input.keyPressed(Keys.ArrowUp);
-
-		if (xDir || yDir) {
-			this.oldPos.x = this.x;
-			this.oldPos.y = this.y;
-			this.followedBy?.move();
-		}
-
-		this.x += xDir * CELL_W;
-		this.y += yDir * CELL_H;
-
-		if (this.x < 0) this.x += BOARD_W;
-		if (this.x >= BOARD_W) this.x -= BOARD_W;
-
-		if (this.y < 0) this.y += BOARD_H;
-		if (this.y >= BOARD_H) this.y -= BOARD_H;
-
+	update() {
 		const egg = this.collideEntity<Egg>(this.x, this.y, COLLISION_TAG.EGG);
 		if (egg) {
 			egg.consume();
 			this.addFollower();
 			this.scene.addEgg();
 		}
+	}
+
+	move(lastInput: InputDir) {
+		this.oldPos.x = this.x;
+		this.oldPos.y = this.y;
+
+		switch (lastInput) {
+			case Keys.ArrowLeft:
+				this.newPos.x -= CELL_W;
+				break;
+			case Keys.ArrowRight:
+				this.newPos.x += CELL_W;
+				break;
+			case Keys.ArrowUp:
+				this.newPos.y -= CELL_H;
+				break;
+			case Keys.ArrowDown:
+				this.newPos.y += CELL_H;
+				break;
+			default:
+				throw new Error('huh???');
+		}
+
+		this.followedBy?.followParent();
 	}
 }

@@ -10,7 +10,7 @@ import {
 	GRID_W,
 } from './assets';
 import { Egg } from './egg';
-import { Player } from './player';
+import { Player, type InputDir } from './player';
 
 const preventDefault = () => {
 	// leave empty
@@ -37,6 +37,8 @@ const pattern = createPattern();
 const random = new Random(1234);
 
 export class GameScene extends Scene {
+	player: Player;
+
 	constructor() {
 		super();
 
@@ -56,6 +58,8 @@ export class GameScene extends Scene {
 		player.oldPos.setXY(player.oldPos.x + CELL_W, player.oldPos.y);
 		this.addEntities(player);
 		player.addFollower();
+
+		this.player = player;
 	}
 
 	addEgg(): void {
@@ -85,7 +89,7 @@ export class GameScene extends Scene {
 		this.addEgg();
 	}
 
-	update(input: Input): void {
+	#assignInput(input: Input): void {
 		[
 			[PLAYER_1.DPAD.left, Keys.ArrowLeft],
 			[PLAYER_1.DPAD.right, Keys.ArrowRight],
@@ -106,5 +110,32 @@ export class GameScene extends Scene {
 				} as KeyboardEvent);
 			}
 		});
+	}
+
+	timer = 0;
+	timeout = 30;
+
+	lastInput: InputDir = Keys.ArrowLeft;
+
+	update(input: Input): void {
+		this.#assignInput(input);
+
+		[
+			// TODO(bret): make this better
+			Keys.ArrowLeft,
+			Keys.ArrowRight,
+			Keys.ArrowUp,
+			Keys.ArrowDown,
+		].forEach((key) => {
+			if (input.keyPressed(key)) this.lastInput = key;
+		});
+
+		// TODO(bret): add a fast mode (gonna need to adjust Octopus lerp)
+		const timeout = this.timeout;
+
+		if (this.timer++ >= timeout) {
+			this.timer = 0;
+			this.player.move(this.lastInput);
+		}
 	}
 }

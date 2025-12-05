@@ -21,7 +21,7 @@ export class Egg extends Entity {
 		const collider = new BoxCollider(CELL_W, CELL_H, COLLISION_TAG.EGG);
 		collider.color = 'lime';
 		this.addCollider(collider);
-		this.colliderVisible = true;
+		// this.colliderVisible = true;
 	}
 
 	consume() {
