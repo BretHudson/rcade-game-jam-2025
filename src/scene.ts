@@ -1,6 +1,15 @@
 import { PLAYER_1 } from '@rcade/plugin-input-classic';
-import { type Input, Keys, Scene } from 'canvas-lord';
-import { CELL_H, CELL_W, GAME_SIZE, GRID_H, GRID_W } from './assets';
+import { type Input, Keys, Random, Scene } from 'canvas-lord';
+import {
+	BOARD_H,
+	BOARD_W,
+	CELL_H,
+	CELL_W,
+	GAME_SIZE,
+	GRID_H,
+	GRID_W,
+} from './assets';
+import { Egg } from './egg';
 import { Player } from './player';
 
 const preventDefault = () => {
@@ -8,7 +17,7 @@ const preventDefault = () => {
 };
 
 const createPattern = () => {
-	const offscreenCanvas = new OffscreenCanvas(GRID_W * CELL_W, GRID_H * CELL_H);
+	const offscreenCanvas = new OffscreenCanvas(BOARD_W, BOARD_H);
 	const offscreenCtx = offscreenCanvas.getContext('2d');
 	if (!offscreenCtx) throw new Error('could not create offscreen canvas');
 	offscreenCtx.fillRect(0, 0, 128, 128);
@@ -25,6 +34,8 @@ const createPattern = () => {
 
 const pattern = createPattern();
 
+const random = new Random(1234);
+
 export class GameScene extends Scene {
 	constructor() {
 		super();
@@ -38,6 +49,20 @@ export class GameScene extends Scene {
 			}
 			ctx.restore();
 		});
+
+		const playerX = 5;
+		const playerY = 5;
+		const player = new Player(playerX * CELL_W, playerY * CELL_H);
+		player.oldPos.setXY(player.oldPos.x + CELL_W, player.oldPos.y);
+		this.addEntities(player);
+		player.addFollower();
+	}
+
+	addEgg(): void {
+		// TODO(bret): store how many open indices there are, get a random index, then loop over the map and find the empty cell with that index (two empty cells = 0 , 1)
+		const x = random.int(GRID_W);
+		const y = random.int(GRID_H);
+		this.addEntities(new Egg(x * CELL_W, y * CELL_H));
 	}
 
 	begin(): void {
@@ -57,7 +82,7 @@ export class GameScene extends Scene {
 		this.camera.x = this.camera.y;
 		console.log(this.camera);
 
-		this.addEntities(new Player());
+		this.addEgg();
 	}
 
 	update(input: Input): void {
