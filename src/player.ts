@@ -1,14 +1,38 @@
 import { Entity, Input, Keys, Sprite } from 'canvas-lord';
+import { assetManager, CELL_W, IMAGES } from './assets';
 
 export class Player extends Entity {
-	constructor(x = 0, y = 0) {
-		super(x, y, Sprite.createRect(32, 32, 'yellow'));
+	get graphic(): Sprite {
+		return super.graphic as Sprite;
 	}
 
+	set graphic(sprite: Sprite) {
+		super.graphic = sprite;
+	}
+
+	constructor(x = 0, y = 0) {
+		const image = assetManager.sprites.get(IMAGES.OCTOPUS);
+		if (!image) throw new Error('oh no');
+		const sprite = new Sprite(image);
+		super(x, y, sprite);
+
+		console.log(image.image);
+		// sprite.scale = ;
+	}
+
+	scaled = false;
+
 	update(input: Input) {
-		if (input.keyCheck(Keys.ArrowLeft)) this.x -= 1;
-		if (input.keyCheck(Keys.ArrowRight)) this.x += 1;
-		if (input.keyCheck(Keys.ArrowUp)) this.y -= 1;
-		if (input.keyCheck(Keys.ArrowDown)) this.y += 1;
+		if (!this.scaled && assetManager.sprites.get(IMAGES.OCTOPUS)?.loaded) {
+			this.graphic.scale = CELL_W / this.graphic.width;
+			this.scaled = true;
+		}
+
+		const xDir =
+			+input.keyCheck(Keys.ArrowRight) - +input.keyCheck(Keys.ArrowLeft);
+		const yDir =
+			+input.keyCheck(Keys.ArrowDown) - +input.keyCheck(Keys.ArrowUp);
+		this.x += xDir;
+		this.y += yDir;
 	}
 }

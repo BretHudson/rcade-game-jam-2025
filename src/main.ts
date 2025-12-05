@@ -1,12 +1,13 @@
 import { PLAYER_1, SYSTEM } from '@rcade/plugin-input-classic';
 import { initGame } from './game';
 import './style.css';
+import { GAME_SIZE } from './assets';
 
 // 336 x 262
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
 	<div id="controls"></div>
-	<canvas id="octo" width="336px" height="262px"></canvas>
+	<canvas id="octo" width=${GAME_SIZE.W}px height=${GAME_SIZE.H}px></canvas>
 `;
 
 // const status = document.querySelector<HTMLParagraphElement>('#status')!;
@@ -36,5 +37,5 @@ function update() {
 	requestAnimationFrame(update);
 }
 
-const game = initGame();
+const game = await initGame();
 game.start();
