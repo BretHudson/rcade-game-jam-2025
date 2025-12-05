@@ -1,16 +1,16 @@
 {
-  "$schema": "https://rcade.dev/manifest.schema.json",
-  "name": "rcade-game",
-  "display_name": "Octo",
-  "description": "description",
-  "visibility": "public",
-  "authors": {
-    "display_name": "Bret Hudson"
-  },
-  "dependencies": [
-    {
-      "name": "@rcade/input-classic",
-      "version": "1.0.0"
-    }
-  ]
+	"$schema": "https://rcade.dev/manifest.schema.json",
+	"name": "rcade-game",
+	"display_name": "Snaketopus",
+	"description": "It's like snake, but with an octopus that has snake arms.",
+	"visibility": "public",
+	"authors": {
+		"display_name": "Bret Hudson"
+	},
+	"dependencies": [
+		{
+			"name": "@rcade/input-classic",
+			"version": "1.0.0"
+		}
+	]
 }
