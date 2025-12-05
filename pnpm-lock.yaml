@@ -11,6 +11,9 @@ importers:
       '@rcade/plugin-input-classic':
         specifier: ^0.2.1
         version: 0.2.3(typescript@5.9.3)
+      canvas-lord:
+        specifier: 0.8.1-alpha.1
+        version: 0.8.1-alpha.1
     devDependencies:
       concurrently:
         specifier: ^9.0.0
@@ -457,6 +460,10 @@ packages:
   '@types/semver@7.7.1':
     resolution: {integrity: sha512-FmgJfu+MOcQ370SD0ev7EI8TlCAfKYU+B4m5T3yXc1CiRN94g/SZPtsCkk506aUDtlMnFZvasDwHHUcZUEaYuA==}
 
+  '@writegames.com/game-math@0.4.4':
+    resolution: {integrity: sha512-1ZGeAaE8qS7oy76FOdDPvk1Gz0AyWITQTCCvrJMTAtqffk0WJc6YS+BhoVIBbpqDnIRdxdagtCP2jfqoJFokvQ==}
+    engines: {node: ^22, pnpm: ^9}
+
   ansi-regex@5.0.1:
     resolution: {integrity: sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==}
     engines: {node: '>=8'}
@@ -467,6 +474,10 @@ packages:
 
   argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
+
+  canvas-lord@0.8.1-alpha.1:
+    resolution: {integrity: sha512-TKAxZKqlJz05MLZVyi0TmeqL4TasA9QwefYdE4okqWqys33ELYNrkTGKKif8rGfMzqC2Yna8Me7KBSPPlg3Xig==}
+    engines: {node: ^22, pnpm: ^9}
 
   chalk@4.1.2:
     resolution: {integrity: sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==}
@@ -1116,6 +1127,8 @@ snapshots:
 
   '@types/semver@7.7.1': {}
 
+  '@writegames.com/game-math@0.4.4': {}
+
   ansi-regex@5.0.1: {}
 
   ansi-styles@4.3.0:
@@ -1123,6 +1136,10 @@ snapshots:
       color-convert: 2.0.1
 
   argparse@2.0.1: {}
+
+  canvas-lord@0.8.1-alpha.1:
+    dependencies:
+      '@writegames.com/game-math': 0.4.4
 
   chalk@4.1.2:
     dependencies:
