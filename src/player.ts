@@ -8,6 +8,7 @@ import {
 	Random,
 	Sprite,
 	Vec2,
+	type ColliderTag,
 	type CSSColor,
 	type Ctx,
 } from 'canvas-lord';
@@ -24,6 +25,8 @@ import type { Egg } from './egg';
 import type { GameScene } from './scene';
 
 export class Octopus extends Entity<GameScene> {
+	dead = false;
+
 	get graphic(): Sprite {
 		return super.graphic as Sprite;
 	}
@@ -63,6 +66,8 @@ export class Octopus extends Entity<GameScene> {
 	}
 
 	preUpdate() {
+		if (this.dead) return;
+
 		if (!this.scaled && assetManager.sprites.get(IMAGES.OCTOPUS)?.loaded) {
 			this.graphic.scale = this.scale * (CELL_W / this.graphic.width);
 			this.graphic.centerOO();
@@ -73,6 +78,8 @@ export class Octopus extends Entity<GameScene> {
 	}
 
 	postUpdate() {
+		if (this.dead) return;
+
 		let xDist = this.x - this.newPos.x;
 		let yDist = this.y - this.newPos.y;
 
@@ -86,9 +93,13 @@ export class Octopus extends Entity<GameScene> {
 		}
 
 		this.x =
-			Math.abs(xDist) > 0.1 ? lerp(this.x, this.newPos.x, 0.17) : this.newPos.x;
+			Math.abs(xDist) > 0.1
+				? lerp(this.x, this.newPos.x, 0.17 * 2)
+				: this.newPos.x;
 		this.y =
-			Math.abs(yDist) > 0.1 ? lerp(this.y, this.newPos.y, 0.17) : this.newPos.y;
+			Math.abs(yDist) > 0.1
+				? lerp(this.y, this.newPos.y, 0.17 * 2)
+				: this.newPos.y;
 
 		if (this.x === this.newPos.x) {
 			if (this.newPos.x < 0) this.newPos.x += BOARD_W;
@@ -186,6 +197,27 @@ export class Player extends Octopus {
 	}
 
 	update() {
+		if (this.dead) return;
+
+		const hash = (p: Vec2) => {
+			return [(p.x + BOARD_W) % BOARD_W, (p.y + BOARD_H) % BOARD_H].join(',');
+		};
+
+		const octopi = new Set();
+		octopi.add(hash(this.newPos));
+
+		// if main octopus
+		if (!this.following) {
+			this.allFollowers((next) => {
+				const nextPos = hash(next.newPos);
+				if (octopi.has(nextPos)) {
+					this.scene.playerDead();
+					return true;
+				}
+				octopi.add(nextPos);
+			});
+		}
+
 		const egg = this.collideEntity<Egg>(this.x, this.y, COLLISION_TAG.EGG);
 		if (egg) {
 			egg.consume();
@@ -194,7 +226,43 @@ export class Player extends Octopus {
 		}
 	}
 
+	collideEntity<T extends Entity>(x: number, y: number): T | null;
+	collideEntity<T extends Entity>(
+		x: number,
+		y: number,
+		tag?: ColliderTag,
+	): T | null;
+	collideEntity<T extends Entity>(
+		x: number,
+		y: number,
+		tags: ColliderTag[],
+	): T | null;
+	collideEntity<T extends Entity>(
+		x: number,
+		y: number,
+		entity: Entity,
+	): T | null;
+	collideEntity<T extends Entity>(
+		x: number,
+		y: number,
+		entities: Entity[],
+	): T | null;
+	collideEntity<T extends Entity>(
+		x: number,
+		y: number,
+		match?: ColliderTag | ColliderTag[] | Entity | Entity[],
+	): T | null {
+		// prettier-ignore
+		return [
+			[x - BOARD_W, y - BOARD_H], [x, y - BOARD_H], [x + BOARD_W, y - BOARD_H],
+			[x - BOARD_W, y], [x, y], [x + BOARD_W, y],
+			[x - BOARD_W, y + BOARD_H], [x, y + BOARD_H], [x + BOARD_W, y + BOARD_H],
+		].map(([x, y]) => super.collideEntity<T>(x, y, match)).find(Boolean) ?? null;
+	}
+
 	move(lastInput: InputDir) {
+		if (this.dead) return;
+
 		this.oldPos.x = this.x;
 		this.oldPos.y = this.y;
 
@@ -216,5 +284,17 @@ export class Player extends Octopus {
 		}
 
 		this.followedBy?.followParent();
+	}
+
+	allFollowers(callback: (f: Octopus) => boolean | void) {
+		const queue = [this.followedBy];
+		while (queue.length) {
+			const next = queue.shift();
+			if (!next) break;
+
+			if (callback(next)) break;
+
+			queue.push(next.followedBy);
+		}
 	}
 }

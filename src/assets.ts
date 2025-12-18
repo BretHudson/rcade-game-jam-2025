@@ -5,8 +5,8 @@ export const GAME_SIZE = {
 	H: 262,
 };
 
-export const GRID_W = 15;
-export const GRID_H = 17;
+export const GRID_W = 10;
+export const GRID_H = 11;
 const SIZE = Math.floor(GAME_SIZE.H / GRID_H) - 1;
 export const CELL_W = SIZE;
 export const CELL_H = SIZE;

@@ -113,29 +113,49 @@ export class GameScene extends Scene {
 	}
 
 	timer = 0;
-	timeout = 30;
+	// timeout = 30;
+	timeout = 15;
 
 	lastInput: InputDir = Keys.ArrowLeft;
+	lastMove: InputDir = Keys.ArrowLeft;
 
 	update(input: Input): void {
 		this.#assignInput(input);
 
-		[
-			// TODO(bret): make this better
+		const arrowKeys = [
 			Keys.ArrowLeft,
-			Keys.ArrowRight,
 			Keys.ArrowUp,
+			Keys.ArrowRight,
 			Keys.ArrowDown,
-		].forEach((key) => {
-			if (input.keyPressed(key)) this.lastInput = key;
+		] as const;
+
+		arrowKeys.forEach((key, i) => {
+			const opp = (i + 2) % 4;
+			if (input.keyPressed(key) && this.lastMove !== arrowKeys[opp])
+				this.lastInput = key;
 		});
 
-		// TODO(bret): add a fast mode (gonna need to adjust Octopus lerp)
-		const timeout = this.timeout;
+		if (!this.player.dead) {
+			// TODO(bret): add a fast mode (gonna need to adjust Octopus lerp)
+			const timeout = this.timeout;
 
-		if (this.timer++ >= timeout) {
-			this.timer = 0;
-			this.player.move(this.lastInput);
+			if (this.timer++ >= timeout) {
+				this.timer = 0;
+				this.player.move(this.lastInput);
+				this.lastMove = this.lastInput;
+			}
+		} else {
+			if (input.keyPressed(Keys.A, Keys.B)) {
+				this.engine.popScenes();
+				this.engine.pushScene(new GameScene());
+			}
 		}
+	}
+
+	playerDead(): void {
+		this.player.dead = true;
+		this.player.allFollowers((next) => {
+			next.dead = true;
+		});
 	}
 }
