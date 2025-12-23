@@ -1,5 +1,16 @@
 import { PLAYER_1 } from '@rcade/plugin-input-classic';
-import { type Input, Keys, Random, Scene } from 'canvas-lord';
+import {
+	Camera,
+	type Ctx,
+	type Input,
+	Keys,
+	Random,
+	Scene,
+	type V2_T,
+	Vec2,
+	Draw,
+	Text,
+} from 'canvas-lord';
 import {
 	BOARD_H,
 	BOARD_W,
@@ -10,7 +21,8 @@ import {
 	GRID_W,
 } from './assets';
 import { Egg } from './egg';
-import { Player, type InputDir } from './player';
+import { Octopus, Player, type InputDir } from './player';
+import { UI } from './ui';
 
 const preventDefault = () => {
 	// leave empty
@@ -36,8 +48,21 @@ const pattern = createPattern();
 
 const random = new Random(1234);
 
+const allCellPos = new Set<string>();
+for (let y = 0; y < BOARD_H; y += CELL_H) {
+	for (let x = 0; x < BOARD_W; x += CELL_W) {
+		allCellPos.add([x, y].join(','));
+	}
+}
+
 export class GameScene extends Scene {
 	player: Player;
+
+	grid = Array.from({ length: GRID_H }, () => {
+		return Array.from({ length: GRID_W }, () => null as Octopus | null);
+	});
+
+	ui = new UI();
 
 	constructor() {
 		super();
@@ -62,11 +87,37 @@ export class GameScene extends Scene {
 		this.player = player;
 	}
 
+	get octopusCount(): number {
+		return this.grid.flat().filter((v) => v !== null).length;
+	}
+
+	get babyCount(): number {
+		return this.octopusCount - 1;
+	}
+
+	get emptyCellCount(): number {
+		return this.grid.flat().filter((v) => v === null).length;
+	}
+
 	addEgg(): void {
-		// TODO(bret): store how many open indices there are, get a random index, then loop over the map and find the empty cell with that index (two empty cells = 0 , 1)
-		const x = random.int(GRID_W);
-		const y = random.int(GRID_H);
-		this.addEntities(new Egg(x * CELL_W, y * CELL_H));
+		const numOpen = this.emptyCellCount;
+
+		if (numOpen === 0) {
+			throw new Error('you won!');
+		}
+
+		const index = random.int(numOpen);
+		let curIndex = 0;
+		for (let y = 0; y < GRID_H; ++y) {
+			for (let x = 0; x < GRID_W; ++x) {
+				if (this.grid[y][x] !== null) continue;
+
+				if (curIndex++ === index) {
+					this.addEntity(new Egg(x * CELL_W, y * CELL_H));
+					break;
+				}
+			}
+		}
 	}
 
 	begin(): void {
@@ -84,9 +135,10 @@ export class GameScene extends Scene {
 		// }
 		this.camera.y = -Math.round((GAME_SIZE.H - CELL_H * GRID_H) / 2);
 		this.camera.x = this.camera.y;
-		console.log(this.camera);
 
 		this.addEgg();
+
+		this.addEntity(this.ui);
 	}
 
 	#assignInput(input: Input): void {
@@ -152,10 +204,41 @@ export class GameScene extends Scene {
 		}
 	}
 
+	render(ctx: Ctx, camera: Camera): void {
+		for (let y = 0; y < GRID_H; ++y) {
+			for (let x = 0; x < GRID_W; ++x) {
+				if (this.grid[y][x] === null) continue;
+
+				const xx = CELL_W * x - camera.x;
+				const yy = CELL_H * y - camera.y;
+				Draw.rect(
+					ctx,
+					{
+						type: 'fill',
+						color: '#00ff0033',
+					},
+					xx,
+					yy,
+					CELL_W,
+					CELL_H,
+				);
+			}
+		}
+	}
+
 	playerDead(): void {
 		this.player.dead = true;
-		this.player.allFollowers((next) => {
+		this.player.allFollowersQueue((next) => {
 			next.dead = true;
 		});
+
+		this.ui.gameOver();
+	}
+
+	posToGridCell(p: Vec2): Vec2 {
+		return new Vec2(
+			((p.x + BOARD_W) % BOARD_W) / CELL_W,
+			((p.y + BOARD_H) % BOARD_H) / CELL_H,
+		);
 	}
 }

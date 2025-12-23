@@ -19,6 +19,11 @@ export const IMAGES = {
 	SNAKETOPUS: 'snaketopus.png',
 };
 
+export const FONTS = {
+	CANDY_BEANS: 'fonts/Candy Beans/Candy Beans.otf',
+	VIRIDIAN_COLLEGE: 'fonts/Viridian College/Viridian College.otf',
+};
+
 export const assetManager = new AssetManager('./assets/');
 
 Object.values(IMAGES).forEach((image) => {

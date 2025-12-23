@@ -11,6 +11,7 @@ import {
 	type ColliderTag,
 	type CSSColor,
 	type Ctx,
+	type V2_T,
 } from 'canvas-lord';
 import {
 	assetManager,
@@ -19,6 +20,8 @@ import {
 	CELL_H,
 	CELL_W,
 	COLLISION_TAG,
+	GRID_H,
+	GRID_W,
 	IMAGES,
 } from './assets';
 import type { Egg } from './egg';
@@ -55,9 +58,6 @@ export class Octopus extends Entity<GameScene> {
 
 		this.oldPos.setXY(x, y);
 		this.newPos.setXY(x, y);
-
-		console.log(image.image);
-		// sprite.scale = ;
 
 		const collider = new BoxCollider(CELL_W, CELL_H, tag);
 		collider.color = color;
@@ -130,6 +130,7 @@ export class Octopus extends Entity<GameScene> {
 		this.followedBy = baby;
 		baby.following = this;
 		this.scene.addEntities(baby);
+		this.scene.grid[this.oldPos.y / CELL_H][this.oldPos.x / CELL_W] = baby;
 	}
 
 	followParent() {
@@ -153,17 +154,28 @@ export class Octopus extends Entity<GameScene> {
 		ctx.rect(-camera.x, -camera.y, BOARD_W, BOARD_H);
 		ctx.clip();
 
-		[
-			[0, 0],
-			[-BOARD_W, 0],
-			[-BOARD_W, -BOARD_H],
-			[-BOARD_W, BOARD_H],
-			[BOARD_W, 0],
-			[BOARD_W, -BOARD_H],
-			[BOARD_W, BOARD_H],
-			[0, -BOARD_H],
-			[0, BOARD_H],
-		].forEach(([x, y]) => {
+		// TODO(bret): only render extra sides if close to the edge!! - and only on
+		// the edges related
+		const pos: V2_T[] = [[0, 0]];
+
+		const edgeL = this.x < CELL_W;
+		const edgeR = this.x >= BOARD_W - CELL_W;
+		const edgeT = this.y < CELL_H;
+		const edgeB = this.y >= BOARD_H - CELL_H;
+		if (edgeL) {
+			pos.push([-BOARD_W, 0]);
+			if (edgeT) pos.push([-BOARD_W, -BOARD_H]);
+			if (edgeB) pos.push([-BOARD_W, BOARD_H]);
+		}
+		if (edgeT) pos.push([0, -BOARD_H]);
+		if (edgeB) pos.push([0, BOARD_H]);
+		if (edgeR) {
+			pos.push([BOARD_W, 0]);
+			if (edgeT) pos.push([BOARD_W, -BOARD_H]);
+			if (edgeB) pos.push([BOARD_W, BOARD_H]);
+		}
+
+		pos.forEach(([x, y]) => {
 			const newCam = new Camera();
 			newCam.set(camera);
 			newCam.setXY(newCam.x + x, newCam.y + y);
@@ -199,65 +211,13 @@ export class Player extends Octopus {
 	update() {
 		if (this.dead) return;
 
-		const hash = (p: Vec2) => {
-			return [(p.x + BOARD_W) % BOARD_W, (p.y + BOARD_H) % BOARD_H].join(',');
-		};
-
-		const octopi = new Set();
-		octopi.add(hash(this.newPos));
-
-		// if main octopus
-		if (!this.following) {
-			this.allFollowers((next) => {
-				const nextPos = hash(next.newPos);
-				if (octopi.has(nextPos)) {
-					this.scene.playerDead();
-					return true;
-				}
-				octopi.add(nextPos);
-			});
-		}
-
 		const egg = this.collideEntity<Egg>(this.x, this.y, COLLISION_TAG.EGG);
 		if (egg) {
+			console.warn('consumed??');
 			egg.consume();
 			this.addFollower();
 			this.scene.addEgg();
 		}
-	}
-
-	collideEntity<T extends Entity>(x: number, y: number): T | null;
-	collideEntity<T extends Entity>(
-		x: number,
-		y: number,
-		tag?: ColliderTag,
-	): T | null;
-	collideEntity<T extends Entity>(
-		x: number,
-		y: number,
-		tags: ColliderTag[],
-	): T | null;
-	collideEntity<T extends Entity>(
-		x: number,
-		y: number,
-		entity: Entity,
-	): T | null;
-	collideEntity<T extends Entity>(
-		x: number,
-		y: number,
-		entities: Entity[],
-	): T | null;
-	collideEntity<T extends Entity>(
-		x: number,
-		y: number,
-		match?: ColliderTag | ColliderTag[] | Entity | Entity[],
-	): T | null {
-		// prettier-ignore
-		return [
-			[x - BOARD_W, y - BOARD_H], [x, y - BOARD_H], [x + BOARD_W, y - BOARD_H],
-			[x - BOARD_W, y], [x, y], [x + BOARD_W, y],
-			[x - BOARD_W, y + BOARD_H], [x, y + BOARD_H], [x + BOARD_W, y + BOARD_H],
-		].map(([x, y]) => super.collideEntity<T>(x, y, match)).find(Boolean) ?? null;
 	}
 
 	move(lastInput: InputDir) {
@@ -284,10 +244,31 @@ export class Player extends Octopus {
 		}
 
 		this.followedBy?.followParent();
+
+		// if main octopus
+		if (!this.following) {
+			const { grid } = this.scene;
+			this.allFollowersQueue((next) => {
+				const p = this.scene.posToGridCell(next.oldPos);
+				grid[p[1]][p[0]] = null;
+			}, true);
+
+			this.allFollowersStack((next) => {
+				const p = this.scene.posToGridCell(next.newPos);
+				if (grid[p[1]][p[0]] !== null) {
+					this.scene.playerDead();
+					return true;
+				}
+				grid[p[1]][p[0]] = next;
+			}, true);
+		}
 	}
 
-	allFollowers(callback: (f: Octopus) => boolean | void) {
-		const queue = [this.followedBy];
+	allFollowersQueue(
+		callback: (f: Octopus) => boolean | void,
+		includeSelf = false,
+	) {
+		const queue = [includeSelf ? this : this.followedBy];
 		while (queue.length) {
 			const next = queue.shift();
 			if (!next) break;
@@ -295,6 +276,24 @@ export class Player extends Octopus {
 			if (callback(next)) break;
 
 			queue.push(next.followedBy);
+		}
+	}
+
+	allFollowersStack(
+		callback: (f: Octopus) => boolean | void,
+		includeSelf = false,
+	) {
+		const queue: Octopus[] = [];
+		let cur: Octopus | null = includeSelf ? this : this.followedBy;
+		while (cur) {
+			queue.push(cur);
+			cur = cur.followedBy;
+		}
+		while (queue.length) {
+			const next = queue.pop();
+			if (!next) break;
+
+			if (callback(next)) break;
 		}
 	}
 }
